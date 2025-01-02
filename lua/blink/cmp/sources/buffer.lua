@@ -99,10 +99,8 @@ function buffer:get_completions(_, callback)
     end
     local buf_text = table.concat(buf_texts, '\n')
 
-    -- should take less than 2ms
     if #buf_text < 20000 then
       run_sync(buf_text, transformed_callback)
-    -- should take less than 10ms
     else
       run_async(buf_text, transformed_callback)
     end
