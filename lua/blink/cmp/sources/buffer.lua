@@ -94,7 +94,8 @@ function buffer:get_completions(_, callback)
     local bufnrs = require('blink.cmp.lib.utils').deduplicate(self.get_bufnrs())
     local buf_texts = {}
     for _, buf in ipairs(bufnrs) do
-      table.insert(buf_texts, get_buf_text(buf))
+      local text = get_buf_text(buf)
+      table.insert(buf_texts, text)
     end
     local buf_text = table.concat(buf_texts, '\n')
 
@@ -102,11 +103,8 @@ function buffer:get_completions(_, callback)
     if #buf_text < 20000 then
       run_sync(buf_text, transformed_callback)
     -- should take less than 10ms
-    elseif #buf_text < 500000 then
-      run_async(buf_text, transformed_callback)
-    -- too big so ignore
     else
-      transformed_callback({})
+      run_async(buf_text, transformed_callback)
     end
   end)
 
