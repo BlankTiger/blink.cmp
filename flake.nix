@@ -38,7 +38,7 @@
           # nvim source files
           # all that are not nix, nor rust
           nvimFs = fs.difference ./. (fs.union nixFs rustFs);
-          version = "0.9.0";
+          version = "0.9.2";
         in {
           blink-fuzzy-lib = let
             inherit (inputs'.fenix.packages.minimal) toolchain;
@@ -83,7 +83,12 @@
           program = let
             buildScript = pkgs.writeShellApplication {
               name = "build-plugin";
-              runtimeInputs = with pkgs; [ fenix.minimal.toolchain gcc ];
+              runtimeInputs = with pkgs;
+                [
+                  fenix.minimal.toolchain
+                ]
+                # use the native gcc on macos, see #652
+                ++ lib.optionals (!pkgs.stdenv.isDarwin) [ gcc ];
               text = ''
                 cargo build --release
               '';
@@ -101,6 +106,8 @@
           ];
           packages = with pkgs; [ rust-analyzer-nightly ];
         };
+
+        formatter = pkgs.nixfmt-classic;
       };
     };
 }

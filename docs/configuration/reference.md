@@ -50,7 +50,7 @@ completion.trigger = {
   -- When false, will not show the completion window automatically when in a snippet
   show_in_snippet = true,
 
-  -- When true, will show the completion window after typing a character that matches the `keyword.regex`
+  -- When true, will show the completion window after typing any of alphanumerics, `-` or `_`
   show_on_keyword = true,
 
   -- When true, will show the completion window after typing a trigger character
@@ -445,7 +445,7 @@ sources.providers = {
     score_offset = 3,
     fallbacks = { 'buffer' },
     opts = {
-      trailing_slash = false,
+      trailing_slash = true,
       label_trailing_slash = true,
       get_cwd = function(context) return vim.fn.expand(('#%d:p:h'):format(context.bufnr)) end,
       show_hidden_files_by_default = false,

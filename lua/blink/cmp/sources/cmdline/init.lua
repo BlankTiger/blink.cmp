@@ -27,11 +27,7 @@ function cmdline:get_completions(context, callback)
 
   local current_arg = arguments[arg_number]
   local keyword_config = require('blink.cmp.config').completion.keyword
-  local keyword = context.get_regex_around_cursor(
-    keyword_config.range,
-    keyword_config.regex,
-    keyword_config.exclude_from_prefix_regex
-  )
+  local keyword = context.get_bounds(keyword_config.range)
   local current_arg_prefix = current_arg:sub(1, keyword.start_col - #text_before_argument - 1)
 
   local task = async.task
@@ -42,10 +38,18 @@ function cmdline:get_completions(context, callback)
         return require('blink.cmp.sources.cmdline.help').get_completions(current_arg_prefix)
       end
 
-      local query = (text_before_argument .. current_arg_prefix):gsub([[\\]], [[\\\\]])
+      local completions = {}
       local completion_type = vim.fn.getcmdcompltype()
-      if completion_type == '' then completion_type = 'cmdline' end
-      local completions = vim.fn.getcompletion(query, completion_type)
+      -- Handle custom completions explicitly, since otherwise they won't work in input() mode (getcmdtype() == '@')
+      if vim.startswith(completion_type, 'custom,') or vim.startswith(completion_type, 'customlist,') then
+        local fun = completion_type:gsub('custom,', ''):gsub('customlist,', '')
+        completions = vim.fn.call(fun, { current_arg_prefix, vim.fn.getcmdline(), vim.fn.getcmdpos() })
+        -- `custom,` type returns a string, delimited by newlines
+        if type(completions) == 'string' then completions = vim.split(completions, '\n') end
+      else
+        local query = (text_before_argument .. current_arg_prefix):gsub([[\\]], [[\\\\]])
+        completions = vim.fn.getcompletion(query, 'cmdline')
+      end
 
       -- Special case for files, escape special characters
       if vim.tbl_contains(constants.file_commands, arguments[1] or '') then
@@ -57,23 +61,24 @@ function cmdline:get_completions(context, callback)
     :map(function(completions)
       local items = {}
       for _, completion in ipairs(completions) do
-        -- remove prefix from the filter text for lua
+        local has_prefix = string.find(completion, current_arg_prefix, 1, true) == 1
+
+        -- remove prefix from the filter text
         local filter_text = completion
-        if string.find(completion, current_arg_prefix, 1, true) == 1 then
-          filter_text = completion:sub(#current_arg_prefix + 1)
-        end
+        if has_prefix then filter_text = completion:sub(#current_arg_prefix + 1) end
 
         -- for lua, use the filter text as the label since it doesn't include the prefix
         local label = arguments[1] == 'lua' and filter_text or completion
 
         -- add prefix to the newText
         local new_text = completion
-        if string.find(new_text, current_arg_prefix, 1, true) ~= 1 then new_text = current_arg_prefix .. completion end
+        if not has_prefix then new_text = current_arg_prefix .. completion end
 
         table.insert(items, {
           label = label,
           filterText = filter_text,
-          sortText = label:lower(),
+          -- move items starting with special characters to the end of the list
+          sortText = label:lower():gsub('^([!-@\\[-`])', '~%1'),
           textEdit = {
             newText = new_text,
             range = {
