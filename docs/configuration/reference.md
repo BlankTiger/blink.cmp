@@ -33,10 +33,6 @@ completion.keyword = {
   -- 'full' will fuzzy match on the text before *and* after the cursor
   -- example: 'foo_|_bar' will match 'foo_' for 'prefix' and 'foo__bar' for 'full'
   range = 'prefix',
-  -- Regex used to get the text when fuzzy matching
-  regex = '[-_]\\|\\k',
-  -- After matching with regex, any characters matching this regex at the prefix will be excluded
-  exclude_from_prefix_regex = '[\\-]',
 }
 ```
 
@@ -93,18 +89,18 @@ completion.list = {
   -- Maximum number of items to display
   max_items = 200,
 
-  -- Controls if completion items will be selected automatically,
-  -- and whether selection automatically inserts
-  selection = 'preselect',
-  -- selection = function(ctx) return ctx.mode == 'cmdline' and 'auto_insert' or 'preselect' end,
+  selection = {
+    -- When `true`, will automatically select the first item in the completion list
+    preselect = true,
+    -- preselect = function(ctx) return ctx.mode ~= 'cmdline' end,
 
-  -- Controls how the completion items are selected
-  -- 'preselect' will automatically select the first item in the completion list
-  -- 'manual' will not select any item by default
-  -- 'auto_insert' will not select any item by default, and insert the completion items automatically when selecting them
-  --
-  -- You may want to bind a key to the `cancel` command, which will undo the selection
-  -- when using 'auto_insert'
+    -- When `true`, inserts the completion item automatically when selecting it
+    -- You may want to bind a key to the `cancel` command (default <C-e>) when using this option, 
+    -- which will both undo the selection and hide the completion menu
+    auto_insert = true,
+    -- auto_insert = function(ctx) return ctx.mode ~= 'cmdline' end
+  },
+
   cycle = {
     -- When `true`, calling `select_next` at the *bottom* of the completion list
     -- will select the *first* completion item.
