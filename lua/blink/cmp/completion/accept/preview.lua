@@ -1,6 +1,5 @@
 --- @param item blink.cmp.CompletionItem
---- @return lsp.TextEdit undo_text_edit, integer[]? undo_cursor_pos The text edit to apply and the original cursor
---- position to move to when undoing the preview,
+--- @return { text_edit: lsp.TextEdit, cursor?: integer[] } undo_text_edit, integer[]? undo_cursor_pos The text edit to apply and the original cursor
 local function preview(item)
   local text_edits_lib = require('blink.cmp.lib.text_edits')
   local text_edit = text_edits_lib.get_from_item(item)
@@ -12,15 +11,15 @@ local function preview(item)
     text_edit.newText = get_prefix_before_brackets_and_quotes(snippet)
   end
 
-  local undo_text_edit = text_edits_lib.get_undo_text_edit(text_edit)
+  local original_cursor = vim.api.nvim_win_get_cursor(0)
   local cursor_pos = {
     text_edit.range.start.line + 1,
     text_edit.range.start.character + #text_edit.newText,
   }
 
-  text_edits_lib.apply({ text_edit })
+  local undo_text_edit = text_edits_lib.get_undo_text_edit(text_edit)
+  text_edits_lib.apply(text_edit)
 
-  local original_cursor = vim.api.nvim_win_get_cursor(0)
   local cursor_moved = false
 
   -- TODO: remove when text_edits_lib.apply begins setting cursor position

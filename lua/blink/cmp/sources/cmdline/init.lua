@@ -39,7 +39,7 @@ function cmdline:get_completions(context, callback)
     .empty()
     :map(function()
       -- Special case for help where we read all the tags ourselves
-      if vim.tbl_contains(constants.help_commands, cmd) then
+      if vim.tbl_contains(constants.help_commands, cmd) and arg_number > 1 then
         return require('blink.cmp.sources.cmdline.help').get_completions(current_arg_prefix)
       end
 
@@ -49,12 +49,14 @@ function cmdline:get_completions(context, callback)
       local completion_func = completion_args[2]
 
       -- Handle custom completions explicitly, since otherwise they won't work in input() mode (getcmdtype() == '@')
-      -- TODO: however, we cannot handle s: and <sid> completions. is there a better solution here where we can get
-      -- completions in input() mode without calling ourselves?
+      -- TODO: however, we cannot handle v:lua, s:, and <sid> completions. is there a better solution here where we can
+      -- get completions in input() mode without calling ourselves?
       if
-        vim.startswith(completion_type, 'custom')
-        and not vim.startswith(completion_func, 's:')
-        and not vim.startswith(completion_func, '<sid>')
+        vim.fn.getcmdtype() == '@'
+        and vim.startswith(completion_type, 'custom')
+        and not vim.startswith(completion_func:lower(), 's:')
+        and not vim.startswith(completion_func:lower(), 'v:lua')
+        and not vim.startswith(completion_func:lower(), '<sid>')
       then
         completions = vim.fn.call(completion_func, { current_arg_prefix, vim.fn.getcmdline(), vim.fn.getcmdpos() })
         -- `custom,` type returns a string, delimited by newlines
@@ -71,32 +73,77 @@ function cmdline:get_completions(context, callback)
 
       return completions
     end)
+    :schedule()
     :map(function(completions)
+      -- The getcompletion() api is inconsistent in whether it returns the prefix or not.
+      --
+      -- I.e. :set shiftwidth=| will return '2'
+      -- I.e. :Neogit kind=| will return 'kind=commit'
+      --
+      -- For simplicity, excluding the first argument, we always replace the entire command argument,
+      -- so we want to ensure the prefix is always in the new_text.
+      --
+      -- In the case of file/buffer completion, we can be sure that the prefix is included
+      -- In all other cases, we want to check for the prefix and remove it from the filter text
+      -- and add it to the newText
+
+      -- Helper function: find the longest match for a given set of patterns
+      local function longest_match(str, patterns)
+        local best = ''
+        for _, pat in ipairs(patterns) do
+          local m = str:match(pat)
+          if m and #m > #best then best = m end
+        end
+        return best
+      end
+
+      local completion_type = vim.fn.getcmdcompltype()
+      local is_file_completion = completion_type == 'file' or completion_type == 'buffer'
+      local is_first_arg = arg_number == 1
+
       local items = {}
       for _, completion in ipairs(completions) do
         local has_prefix = string.find(completion, current_arg_prefix, 1, true) == 1
 
-        -- remove prefix from the filter text
         local filter_text = completion
-        if has_prefix then filter_text = completion:sub(#current_arg_prefix + 1) end
-
-        -- for lua, use the filter text as the label since it doesn't include the prefix
-        local label = cmd == 'lua' and filter_text or completion
-
-        -- add prefix to the newText
         local new_text = completion
-        if not has_prefix then new_text = current_arg_prefix .. completion end
+        if not is_first_arg and not is_file_completion then
+          -- remove prefix from the filter text
+          if has_prefix then filter_text = completion:sub(#current_arg_prefix + 1) end
+
+          -- add prefix to the newText
+          if not has_prefix then new_text = current_arg_prefix .. completion end
+        end
+
+        local start_pos = #text_before_argument
+
+        -- exclude range on the first argument
+        if is_first_arg then
+          local prefix = longest_match(current_arg, {
+            "^%s*'<%s*,%s*'>%s*", -- Visual range, e.g., '<,>'
+            '^%s*%d+%s*,%s*%d+%s*', -- Numeric range, e.g., 3,5
+            '^%s*[%p]+%s*', -- One or more punctuation characters
+          })
+          start_pos = start_pos + #prefix
+        end
 
         table.insert(items, {
-          label = label,
+          label = filter_text,
           filterText = filter_text,
           -- move items starting with special characters to the end of the list
-          sortText = label:lower():gsub('^([!-@\\[-`])', '~%1'),
+          sortText = filter_text:lower():gsub('^([!-@\\[-`])', '~%1'),
           textEdit = {
             newText = new_text,
-            range = {
-              start = { line = 0, character = #text_before_argument },
-              ['end'] = { line = 0, character = #text_before_argument + #current_arg },
+            insert = {
+              start = { line = 0, character = start_pos },
+              ['end'] = { line = 0, character = vim.fn.getcmdpos() - 1 },
+            },
+            replace = {
+              start = { line = 0, character = start_pos },
+              ['end'] = {
+                line = 0,
+                character = math.min(start_pos + #current_arg, context.bounds.start_col + context.bounds.length - 1),
+              },
             },
           },
           kind = require('blink.cmp.types').CompletionItemKind.Property,

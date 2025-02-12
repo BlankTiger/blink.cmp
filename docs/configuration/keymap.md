@@ -31,8 +31,13 @@ keymap = {
     'select_next'
   },
 
-  -- optionally, separate cmdline keymaps
-  -- cmdline = {}
+  -- optionally, separate cmdline and terminal keymaps
+  cmdline = {
+    -- sets <CR> to accept the item and run the command immediately
+    -- use `select_accept_and_enter` to accept the item or the first item if none are selected
+    ['<CR>'] = { 'accept_and_enter', 'fallback' },
+  }
+  -- term = {}
 }
 ```
 
@@ -44,8 +49,12 @@ keymap = {
 - `cancel`: Reverts `completion.list.selection.auto_insert` and hides the completion menu
 - `accept`: Accepts the currently selected item
   - Optionally pass an index to select a specific item in the list: `function(cmp) cmp.accept({ index = 1 }) end`
-  - Optionally pass a `callback` to run after the item is accepted: `function(cmp) cmp.accept({ callback = function() vim.api.nvim_feedkeys('\n', 'n', true) end }) end`
+  - Optionally pass a `callback` to run after the item is accepted: `function(cmp) cmp.accept({ callback = function() some_function() end`
+- `accept_and_enter`: Accepts the currently selected item and feeds an enter key to neovim
+  - Useful in `cmdline` mode to accept the current item and run the command
 - `select_and_accept`: Accepts the currently selected item, or the first item if none are selected
+- `select_accept_and_enter`: Accepts the currently selected item, or the first item if none are selected, and feeds an enter key to neovim
+  - Useful in `cmdline` mode to accept the current item and run the command
 - `select_prev`: Selects the previous item, cycling to the bottom of the list if at the top, if `completion.list.cycle.from_top == true`
   - Optionally control the `auto_insert` property of `completion.list.selection`: `function(cmp) cmp.select_prev({ auto_insert = false }) end`
 - `select_next`: Selects the next item, cycling to the top of the list if at the bottom, if `completion.list.cycle.from_bottom == true`
@@ -56,11 +65,13 @@ keymap = {
   - Optionally use `function(cmp) cmp.scroll_documentation_up(4) end` to scroll by a specific number of lines
 - `scroll_documentation_down`: Scrolls the documentation down by 4 lines
   - Optionally use `function(cmp) cmp.scroll_documentation_down(4) end` to scroll by a specific number of lines
+- `show_signature`: Shows the signature help window
+- `hide_signature`: Hides the signature help window
 - `snippet_forward`: Jumps to the next snippet placeholder
 - `snippet_backward`: Jumps to the previous snippet placeholder
 - `fallback`: Runs the next non-blink keymap, or runs the built-in neovim binding
 
-## Cmdline
+## Cmdline and Terminal
 
 You may set a separate keymap for cmdline by defining `keymap.cmdline`, with an identical structure to `keymap`.
 
@@ -70,6 +81,15 @@ keymap = {
   ...
   cmdline = {
     preset = 'enter',
+
+    -- OPTIONAL: sets <CR> to accept the item and run the command immediately
+    -- use `select_accept_and_enter` to accept the item or the first item if none are selected
+    ['<CR>'] = { 'accept_and_enter', 'fallback' },
+
+    ...
+  },
+  term = {
+    preset = 'super-tab',
     ...
   }
 }
@@ -86,6 +106,8 @@ Set the preset to `none` to disable the presets
 ['<C-e>'] = { 'hide' },
 ['<C-y>'] = { 'select_and_accept' },
 
+['<Up>'] = { 'select_prev', 'fallback' },
+['<Down>'] = { 'select_next', 'fallback' },
 ['<C-p>'] = { 'select_prev', 'fallback' },
 ['<C-n>'] = { 'select_next', 'fallback' },
 
@@ -94,6 +116,8 @@ Set the preset to `none` to disable the presets
 
 ['<Tab>'] = { 'snippet_forward', 'fallback' },
 ['<S-Tab>'] = { 'snippet_backward', 'fallback' },
+
+['<C-k>'] = { 'show_signature', 'hide_signature', 'fallback' },
 ```
 
 ### `super-tab`
@@ -121,6 +145,8 @@ You may want to set `completion.trigger.show_in_snippet = false` or use `complet
 
 ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
 ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
+
+['<C-k>'] = { 'show_signature', 'hide_signature', 'fallback' },
 ```
 
 ### `enter`
@@ -142,4 +168,6 @@ You may want to set `completion.list.selection.preselect = false`. See more info
 
 ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
 ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
+
+['<C-k>'] = { 'show_signature', 'hide_signature', 'fallback' },
 ```

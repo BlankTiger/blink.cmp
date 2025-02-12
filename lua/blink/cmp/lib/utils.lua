@@ -109,4 +109,58 @@ function utils.slice(arr, start, finish)
   return sliced
 end
 
+--- Gets the full Unicode character at cursor position
+--- @return string
+function utils.get_char_at_cursor()
+  local context = require('blink.cmp.completion.trigger.context')
+
+  local line = context.get_line()
+  if line == '' then return '' end
+  local cursor_col = context.get_cursor()[2]
+
+  -- Find the start of the UTF-8 character
+  local start_col = cursor_col
+  while start_col > 1 do
+    local char = string.byte(line:sub(start_col, start_col))
+    if char < 0x80 or char > 0xBF then break end
+    start_col = start_col - 1
+  end
+
+  -- Find the end of the UTF-8 character
+  local end_col = cursor_col
+  while end_col < #line do
+    local char = string.byte(line:sub(end_col + 1, end_col + 1))
+    if char < 0x80 or char > 0xBF then break end
+    end_col = end_col + 1
+  end
+
+  return line:sub(start_col, end_col)
+end
+
+--- Reverses an array
+--- @generic T
+--- @param arr T[]
+--- @return T[]
+function utils.reverse(arr)
+  local reversed = {}
+  for i = #arr, 1, -1 do
+    reversed[#reversed + 1] = arr[i]
+  end
+  return reversed
+end
+
+--- Disables all autocmds for the duration of the callback
+--- @param cb fun()
+function utils.with_no_autocmds(cb)
+  local original_eventignore = vim.opt.eventignore
+  vim.opt.eventignore = 'all'
+
+  local success, result_or_err = pcall(cb)
+
+  vim.opt.eventignore = original_eventignore
+
+  if not success then error(result_or_err) end
+  return result_or_err
+end
+
 return utils
